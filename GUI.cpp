@@ -2,24 +2,33 @@
 // Created by benji on 30.06.17.
 //
 
+#include <FL/Fl_Group.H>
 #include "GUI.h"
 
 GUI::GUI(int W, int H, const char *l) : Fl_Double_Window(W, H, l) {
-    new ColorFigureEditor(100,100,200,50, "CUBE");
+
+    this->figureEditors.push_back(new FigureEditor(100,100,200,50, "CUBE"));
+//    this->figureEditors.push_back(new FigureEditor(100,200,200,50, "CUBE #1"));
     this->end();
     this->show();
 }
 
-FigureEditor::FigureEditor(int X, int Y, int W, int H, const char *l) : Fl_Group(X, Y, W+300, H+300), infoWidth(W), infoHeight(H) {
+Editor::Editor(int X, int Y, int W, int H, const char *l) : Fl_Group(X, Y, W+300, H+300), infoWidth(W), infoHeight(H) {
     editWidth = w()-infoWidth;
     editHeight= h();
     int editX = x()+infoWidth;
     this->displayBox = new Fl_Box(X,Y,infoWidth,H, l);
     this->displayBox->box(FL_PLASTIC_DOWN_BOX);
-
     this->scrollInfo = new Fl_Scroll(editX,Y, editWidth, editHeight);
     this->scrollInfo->box(FL_PLASTIC_DOWN_BOX);
     this->scrollInfo->selection_color(FL_WHITE);
+    this->scrollInfo->end();
+    this->scrollInfo->hide();
+}
+
+FigureEditor::FigureEditor(int X, int Y, int W, int H, const char *l) : Editor(X, Y, W, H, l){
+    int editX = x()+infoWidth;
+    this->scrollInfo->begin();
     {
         Fl_Choice* choice = new Fl_Choice(editX+60,y()+20,120,32, "Type:");
         choice->add("Cube");
@@ -57,16 +66,17 @@ FigureEditor::FigureEditor(int X, int Y, int W, int H, const char *l) : Fl_Group
         i->value("1");
     }
     this->scrollInfo->end();
-    this->scrollInfo->hide();
     this->end();
 }
 
-int FigureEditor::handle(int event) {
+int Editor::handle(int event) {
     static int offset[2] = {0,0};
     switch(event){
         case FL_ENTER:
             if (Fl::event_x() <= x()+infoWidth && Fl::event_y() <= y()+infoHeight){
                 this->scrollInfo->show();
+                this->window()->insert(*this, 0);
+                this->window()->redraw();
             }
             return 1;
         case FL_MOVE:
@@ -98,6 +108,8 @@ int FigureEditor::handle(int event) {
                     this->scrollInfo->hide();
                     offset[0] = x()-Fl::event_x();
                     offset[1] = y()-Fl::event_y();
+                    origX = x();
+                    origY = y();
                     return 1;
                 }
             }
@@ -107,9 +119,6 @@ int FigureEditor::handle(int event) {
             this->position(Fl::event_x()+offset[0], Fl::event_y()+offset[1]);
             this->window()->redraw();
             return 1;
-        }
-        case FL_RELEASE:{
-            this->scrollInfo->show();
         }
         default:
             return Fl_Group::handle(event);
@@ -162,6 +171,24 @@ void FigureEditor::changeTypeCB(Fl_Widget *w, void *v) {
     }
 }
 
+int FigureEditor::handle(int event) {
+    int e = Editor::handle(event);
+    switch (event) {
+        case FL_RELEASE:{
+            GUI* gui = (GUI*) window();
+            for(FigureEditor* editor: gui->figureEditors){
+                if(editor == this)
+                    continue;
+                bool condition = Fl::event_x() > editor->x() && Fl::event_x() < editor->x() + editor->infoWidth && Fl::event_y() > editor->y() && Fl::event_y() < editor->y() + editor->infoHeight;
+                if (condition)
+                    std::cerr << "A" << std::endl;
+            }
+        }
+        default:
+            return e;
+    }
+}
+
 LightFigureEditor::LightFigureEditor(int X, int Y, int W, int H, const char *l) : FigureEditor(X, Y, W, H, l) {
     int editX = x()+infoWidth;
     Fl_Input* inp = new Fl_Input(editX+30, y()+220, 60,32, "AmbientR");
@@ -208,3 +235,67 @@ ColorFigureEditor::ColorFigureEditor(int X, int Y, int W, int H, const char *l) 
     int editX = x()+infoWidth;
     this->scrollInfo->insert(*(new Fl_Color_Chooser(editX+30,y()+220, 240,150, "Color")),9);
 }
+
+LightEditor::LightEditor(int X, int Y, int W, int H, const char *l) : Editor(X, Y, W, H, l){
+    int editX = x()+infoWidth;
+    this->scrollInfo->begin();
+    Fl_Check_Button* check = new Fl_Check_Button(editX+120, y()+20, 32,32,"Infinity");
+    check->callback(changeTypeCB);
+    check->when(FL_WHEN_CHANGED);
+    Fl_Input* inp = new Fl_Input(editX+30, y()+70, 60, 32, "X");
+    inp->align(FL_ALIGN_TOP_LEFT);
+    inp->value("0");
+    inp = new Fl_Input(editX+120, y()+70, 60, 32, "Y");
+    inp->align(FL_ALIGN_TOP_LEFT);
+    inp->value("0");
+    inp = new Fl_Input(editX+210, y()+70, 60, 32, "Z");
+    inp->align(FL_ALIGN_TOP_LEFT);
+    inp->value("0");
+
+    inp = new Fl_Input(editX+30, y()+120, 60, 32, "AmbientR");
+    inp->align(FL_ALIGN_TOP_LEFT);
+    inp->value("0");
+    inp = new Fl_Input(editX+120, y()+120, 60, 32, "AmbientG");
+    inp->align(FL_ALIGN_TOP_LEFT);
+    inp->value("0");
+    inp = new Fl_Input(editX+210, y()+120, 60, 32, "AmbientB");
+    inp->align(FL_ALIGN_TOP_LEFT);
+    inp->value("0");
+
+    inp = new Fl_Input(editX+30, y()+170, 60, 32, "DiffuseR");
+    inp->align(FL_ALIGN_TOP_LEFT);
+    inp->value("0");
+    inp = new Fl_Input(editX+120, y()+170, 60, 32, "DiffuseG");
+    inp->align(FL_ALIGN_TOP_LEFT);
+    inp->value("0");
+    inp = new Fl_Input(editX+210, y()+170, 60, 32, "DiffuseB");
+    inp->align(FL_ALIGN_TOP_LEFT);
+    inp->value("0");
+
+    inp = new Fl_Input(editX+30, y()+220, 60, 32, "SpecularR");
+    inp->align(FL_ALIGN_TOP_LEFT);
+    inp->value("0");
+    inp = new Fl_Input(editX+120, y()+220, 60, 32, "SpecularG");
+    inp->align(FL_ALIGN_TOP_LEFT);
+    inp->value("0");
+    inp = new Fl_Input(editX+210, y()+220, 60, 32, "SpecularB");
+    inp->align(FL_ALIGN_TOP_LEFT);
+    inp->value("0");
+}
+
+void LightEditor::changeTypeCB(Fl_Widget *w) {
+    Fl_Scroll* scroll = (Fl_Scroll*) w->parent();
+    Fl_Check_Button* check = (Fl_Check_Button*) w;
+    if (check->value()){
+        scroll->child(1)->label("DirectionX");
+        scroll->child(2)->label("DirectionY");
+        scroll->child(3)->label("DirectionZ");
+    }
+    else{
+        scroll->child(1)->label("X");
+        scroll->child(2)->label("Y");
+        scroll->child(3)->label("Z");
+    }
+    scroll->redraw();
+}
+
