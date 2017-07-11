@@ -8,6 +8,9 @@
 #include <iostream>
 #include <locale>
 #include <vector>
+#include <map>
+#include <fstream>
+#include <exception>
 #include "FL/Fl.H"
 #include "FL/names.h"
 #include "FL/Fl_Group.H"
@@ -19,6 +22,8 @@
 #include "FL/fl_ask.H"
 #include "FL/Fl_Choice.H"
 #include "FL/Fl_Check_Button.H"
+#include "FL/Fl_Menu_Bar.H"
+#include "FL/Fl_Radio_Light_Button.H"
 
 class Editor : public Fl_Group{
 protected:
@@ -27,6 +32,8 @@ protected:
     int editWidth;
     int editHeight;
     int origX, origY;
+    std::vector<Fl_Input*> inputs;
+    std::vector<Fl_Widget*> otherWidgets;
 public:
     Editor(int X, int Y, int W, int H, const char* l);
 
@@ -35,14 +42,12 @@ public:
     Fl_Scroll* scrollInfo = NULL;
 
     virtual int handle(int event);
+
+    virtual std::map<std::string, std::string> getDump();
 };
 
 class FigureEditor : public Editor{
 protected:
-    int infoWidth;
-    int infoHeight;
-    int editWidth;
-    int editHeight;
     virtual int defaultWidgets(){
         return 10;
     }
@@ -52,6 +57,8 @@ public:
     FigureEditor(int X, int Y, int W, int H, const char* l = 0);
 
     int handle(int event);
+
+    virtual std::map<std::string, std::string> getDump();
 };
 
 class LightFigureEditor : public FigureEditor{
@@ -61,6 +68,7 @@ protected:
     }
 public:
     LightFigureEditor(int X, int Y, int W, int H, const char *l);
+
 };
 
 
@@ -71,6 +79,8 @@ protected:
     }
 public:
     ColorFigureEditor(int X, int Y, int W, int H, const char *l);
+
+    std::map<std::string, std::string> getDump();
 };
 
 class LightEditor: public Editor{
@@ -78,14 +88,58 @@ private:
     static void changeTypeCB(Fl_Widget *w);
 public:
     LightEditor(int X, int Y, int W, int H, const char *l);
+
+    std::map<std::string, std::string> getDump();
+
+    int handle(int event);
+};
+
+class ImageEditor: public Editor{
+public:
+    ImageEditor(int X, int Y, int W, int H, const char* l);
+
+    std::map<std::string, std::string> getDump();
+
 };
 
 class GUI : public Fl_Double_Window{
 private:
     std::vector<FigureEditor*> figureEditors={};
+
+    std::vector<LightEditor*> lightEditors = {};
+
+    const int STARTX = 100;
+
+    const int STARTY = 100;
+
+    const int EDITORWIDTH = 200;
+
+    const int EDITORHEIGHT = 50;
+
+    const int SEPERATION = 50;
 public:
+    ImageEditor* imageEditor = NULL;
+
     friend class FigureEditor;
+
+    friend class LightEditor;
+
+    Fl_Menu_Bar* menuBar = NULL;
+
     GUI(int W, int H, const char *l = 0);
+
+    void addFigureEditor(int lightType, int figureType = 0);
+
+    void addLightEditor(int lightType);
+
+    static void addCB(Fl_Widget* w, void* v);
+
+    static void submitCB(Fl_Widget *w, void *v);
+
+    void generateIni();
 };
 
+void executeCommand(std::string s);
+
+LightFigureEditor* colorToLight(ColorFigureEditor* colorFigureEditor);
 #endif //GRAPHICS_ENGINE_GUI_GUI_H
