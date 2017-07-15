@@ -31,6 +31,7 @@ GUI::GUI(int W, int H, const char *l) : Fl_Double_Window(W, H, l) {
     new Fl_Radio_Light_Button(900,100,20,20,"TEST");
     new Fl_Radio_Light_Button(940,100,20,20,"TEST1");
     new Fl_Radio_Light_Button(980,100,20,20,"TEST2");
+    new LightingGroup(900,500,"Ambient");
     this->end();
     this->show();
 }
@@ -266,46 +267,22 @@ std::map<std::string, std::string> FigureEditor::getDump() {
 LightFigureEditor::LightFigureEditor(int X, int Y, int W, int H, const char *l) : FigureEditor(X, Y, W, H, l) {
     this->scrollInfo->begin();
     int editX = x()+infoWidth;
-    Fl_Input* inp = new Fl_Input(editX+30, y()+220, 60,32, "AmbientR");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    this->inputs.push_back(inp);
-    inp = new Fl_Input(editX+120, y()+220, 60,32, "AmbientG");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    this->inputs.push_back(inp);
-    inp = new Fl_Input(editX+210, y()+220, 60,32, "AmbientB");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    this->inputs.push_back(inp);
-
-    inp = new Fl_Input(editX+30, y()+270, 60,32, "DiffuseR");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    this->inputs.push_back(inp);
-    inp = new Fl_Input(editX+120, y()+270, 60,32, "DiffuseG");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    this->inputs.push_back(inp);
-    inp = new Fl_Input(editX+210, y()+270, 60,32, "DiffuseB");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    this->inputs.push_back(inp);
-
-    inp = new Fl_Input(editX+30, y()+320, 60,32, "SpecularR");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    this->inputs.push_back(inp);
-    inp = new Fl_Input(editX+120, y()+320, 60,32, "SpecularG");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    this->inputs.push_back(inp);
-    inp = new Fl_Input(editX+210, y()+320, 60,32, "SpecularB");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    this->inputs.push_back(inp);
+    otherWidgets.push_back(new LightingGroup(editX+80,y()+220,"Ambient"));
+    otherWidgets.push_back(new LightingGroup(editX+80,y()+270,"Diffuse"));
+    otherWidgets.push_back(new LightingGroup(editX+80,y()+320,"Specular"));
     this->scrollInfo->end();
     this->end();
+}
+
+std::map<std::string, std::string> LightFigureEditor::getDump() {
+    std::map<std::string ,std::string> dump = FigureEditor::getDump();
+    LightingGroup* lightingGroup = (LightingGroup*) otherWidgets[1];
+    dump[lightingGroup->label()] = lightingGroup->value();
+    lightingGroup = (LightingGroup*) otherWidgets[2];
+    dump[lightingGroup->label()] = lightingGroup->value();
+    lightingGroup = (LightingGroup*) otherWidgets[3];
+    dump[lightingGroup->label()] = lightingGroup->value();
+    return dump;
 }
 
 ColorFigureEditor::ColorFigureEditor(int X, int Y, int W, int H, const char *l) : FigureEditor(X, Y, W, H, l) {
@@ -341,45 +318,9 @@ LightEditor::LightEditor(int X, int Y, int W, int H, const char *l) : Editor(X, 
     inp->align(FL_ALIGN_TOP_LEFT);
     inp->value("0");
     inputs.push_back(inp);
-
-    inp = new Fl_Input(editX+30, y()+120, 60, 32, "AmbientR");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    inputs.push_back(inp);
-    inp = new Fl_Input(editX+120, y()+120, 60, 32, "AmbientG");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    inputs.push_back(inp);
-    inp = new Fl_Input(editX+210, y()+120, 60, 32, "AmbientB");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    inputs.push_back(inp);
-
-    inp = new Fl_Input(editX+30, y()+170, 60, 32, "DiffuseR");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    inputs.push_back(inp);
-    inp = new Fl_Input(editX+120, y()+170, 60, 32, "DiffuseG");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    inputs.push_back(inp);
-    inp = new Fl_Input(editX+210, y()+170, 60, 32, "DiffuseB");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    inputs.push_back(inp);
-
-    inp = new Fl_Input(editX+30, y()+220, 60, 32, "SpecularR");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    inputs.push_back(inp);
-    inp = new Fl_Input(editX+120, y()+220, 60, 32, "SpecularG");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    inputs.push_back(inp);
-    inp = new Fl_Input(editX+210, y()+220, 60, 32, "SpecularB");
-    inp->align(FL_ALIGN_TOP_LEFT);
-    inp->value("0");
-    inputs.push_back(inp);
+    otherWidgets.push_back(new LightingGroup(editX+80,y()+120,"Ambient"));
+    otherWidgets.push_back(new LightingGroup(editX+80,y()+170,"Diffuse"));
+    otherWidgets.push_back(new LightingGroup(editX+80,y()+220,"Specular"));
     this->scrollInfo->end();
     this->end();
 }
@@ -405,6 +346,12 @@ std::map<std::string, std::string> LightEditor::getDump() {
     Fl_Check_Button* check = (Fl_Check_Button*) otherWidgets[0];
     std::string infinity = (check->value() ? "TRUE" : "FALSE");
     dump["infinity"] = infinity;
+    LightingGroup* lightingGroup = (LightingGroup*) otherWidgets[1];
+    dump[lightingGroup->label()] = lightingGroup->value();
+    lightingGroup = (LightingGroup*) otherWidgets[2];
+    dump[lightingGroup->label()] = lightingGroup->value();
+    lightingGroup = (LightingGroup*) otherWidgets[3];
+    dump[lightingGroup->label()] = lightingGroup->value();
     return dump;
 }
 
@@ -545,9 +492,9 @@ void GUI::generateIni() {
             else{
                 file << "location = (" << lightDump["X"] << "," << lightDump["Y"] << "," << lightDump["Z"] << ")" << std::endl;
             }
-            file << "ambientLight = (" << lightDump["AmbientR"] << "," << lightDump["AmbientG"] << "," << lightDump["AmbientB"] << ")" << std::endl;
-            file << "diffuseLight = (" << lightDump["DiffuseR"] << "," << lightDump["DiffuseG"] << "," << lightDump["DiffuseB"] << ")" << std::endl;
-            file << "specularLight = (" << lightDump["SpecularR"] << "," << lightDump["SpecularG"] << "," << lightDump["SpecularB"] << ")" << std::endl;
+            file << "ambientLight = " << lightDump["Ambient"] << std::endl;
+            file << "diffuseLight = " << lightDump["Diffuse"] << std::endl;
+            file << "specularLight = " << lightDump["Specular"] << std::endl;
             file << std::endl;
         }
     }
@@ -561,12 +508,9 @@ void GUI::generateIni() {
         if (usesColors)
             file << "color = " << figureDump["Color"] << std::endl;
         else{
-            std::string ambient = "(" + figureDump["AmbientR"] + "," + figureDump["AmbientG"] + "," + figureDump["AmbientB"] + ")";
-            std::string diffuse = "(" + figureDump["DiffuseR"] + "," + figureDump["DiffuseG"] + "," + figureDump["DiffuseB"] + ")";
-            std::string specular = "(" + figureDump["SpecularR"] + "," + figureDump["SpecularG"] + "," + figureDump["SpecularB"] + ")";
-            file << "ambientReflection = " << ambient << std::endl;
-            file << "diffuseReflection = " << diffuse << std::endl;
-            file << "specularReflection = " << specular << std::endl;
+            file << "ambientReflection = " << figureDump["Ambient"] << std::endl;
+            file << "diffuseReflection = " << figureDump["Diffuse"] << std::endl;
+            file << "specularReflection = " << figureDump["Specular"] << std::endl;
         }
         if (figureDump.find("Detail(\"n\")") != figureDump.end())
             file << "n = " << figureDump["Detail(\"n\")"] << std::endl;
@@ -620,4 +564,58 @@ LightFigureEditor *colorToLight(ColorFigureEditor *colorFigureEditor) {
     Fl_Choice* typechoice2 = (Fl_Choice*) lightFigureEditor->child(0);
     typechoice2->value(typechoice1->value());
      return lightFigureEditor;
+}
+
+LightingGroup::LightingGroup(int X, int Y, const char *label) : Fl_Group(X,Y, 205,32, label){
+    align(FL_ALIGN_LEFT);
+    Fl_Input* inp = new Fl_Input(X+5, Y, 40, 32, "R");
+    inp->value("0");
+    inp->align(FL_ALIGN_TOP);
+    inp = new Fl_Input(X+60, Y, 40, 32, "G");
+    inp->value("0");
+    inp->align(FL_ALIGN_TOP);
+    inp = new Fl_Input(X+115, Y, 40, 32, "B");
+    inp->value("0");
+    inp->align(FL_ALIGN_TOP);
+    Fl_Button* button = new Fl_Button(X+170,Y,32,32,"..");
+    button->callback(colorCB);
+    end();
+}
+
+void LightingGroup::colorCB(Fl_Widget *w) {
+    LightingGroup* group = (LightingGroup*) w->parent();
+    double r,g,b;
+    Fl_Input* inputR;
+    Fl_Input* inputG;
+    Fl_Input* inputB;
+    inputR = (Fl_Input*) group->child(0);
+    inputG = (Fl_Input*) group->child(1);
+    inputB = (Fl_Input*) group->child(2);
+    r = std::stod(inputR->value());
+    g = std::stod(inputG->value());
+    b = std::stod(inputB->value());
+    fl_color_chooser("Color",r,g,b);
+
+    std::string stringR, stringG, stringB;
+    stringR = std::to_string(r).substr(0,4);
+    stringG = std::to_string(g).substr(0,4);
+    stringB = std::to_string(b).substr(0,4);
+    inputR->value(stringR.c_str());
+    inputG->value(stringG.c_str());
+    inputB->value(stringB.c_str());
+
+}
+
+std::string LightingGroup::value() {
+    Fl_Input* inputR = (Fl_Input*) child(0);
+    Fl_Input* inputG = (Fl_Input*) child(1);
+    Fl_Input* inputB = (Fl_Input*) child(2);
+    std::string val = "(";
+    val += inputR->value();
+    val += ",";
+    val += inputG->value();
+    val += ",";
+    val += inputB->value();
+    val += ")";
+    return val;
 }

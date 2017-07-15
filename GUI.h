@@ -69,6 +69,8 @@ protected:
 public:
     LightFigureEditor(int X, int Y, int W, int H, const char *l);
 
+    std::map<std::string, std::string> getDump();
+
 };
 
 
@@ -137,6 +139,15 @@ public:
     static void submitCB(Fl_Widget *w, void *v);
 
     void generateIni();
+};
+
+class LightingGroup : public Fl_Group{
+private:
+    static void colorCB(Fl_Widget* w);
+public:
+    LightingGroup(int X, int Y, const char* label);
+
+    std::string value();
 };
 
 void executeCommand(std::string s);
