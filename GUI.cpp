@@ -10,7 +10,7 @@ GUI::GUI(int W, int H, const char *l) : Fl_Double_Window(W, H, l) {
 
     this->imageEditor = new ImageEditor(STARTX,STARTY,EDITORWIDTH,EDITORHEIGHT,"Image");
 
-    this->addFigureEditor(1, 0);
+    this->addFigureEditor(0, 0);
     this->addFigureEditor(0, 0);
     this->addLightEditor(0);
     this->addLightEditor(1);
@@ -28,15 +28,15 @@ GUI::GUI(int W, int H, const char *l) : Fl_Double_Window(W, H, l) {
     this->menuBar->add("Add a new Light/Infinite", FL_ALT + '9', addCB, new int(9));
 
     this->menuBar->add("Submit", FL_CTRL, submitCB);
-    new Fl_Radio_Light_Button(900,100,20,20,"TEST");
-    new Fl_Radio_Light_Button(940,100,20,20,"TEST1");
-    new Fl_Radio_Light_Button(980,100,20,20,"TEST2");
-    new LightingGroup(900,500,"Ambient");
+    new Fl_Radio_Round_Button(900,100,20,20,"TEST");
+    new Fl_Radio_Round_Button(940,100,20,20,"TEST1");
+    new Fl_Radio_Round_Button(980,100,20,20,"TEST2");
     this->end();
     this->show();
 }
 
-Editor::Editor(int X, int Y, int W, int H, const char *l) : Fl_Group(X, Y, W, H), infoWidth(W), infoHeight(H), origX(X), origY(Y) {
+Editor::Editor(int X, int Y, int W, int H, const char *l) : Fl_Group(X, Y, W, H, l), infoWidth(W), infoHeight(H), origX(X), origY(Y) {
+    labeltype(FL_NO_LABEL);
     editWidth = 300;
     editHeight= h()+300;
     resizable(NULL); //child widgets won't resize when resizing the group
@@ -92,9 +92,14 @@ FigureEditor::FigureEditor(int X, int Y, int W, int H, const char *l) : Editor(X
         i->align(FL_ALIGN_TOP_LEFT);
         i->value("0");
         inputs.push_back(i);
-        i = new Fl_Input(editX+120, y()+170, 60, 32, "Scale");
+        i = new Fl_Input(editX+30, y()+170, 60, 32, "Scale");
         i->align(FL_ALIGN_TOP_LEFT);
         i->value("1");
+        inputs.push_back(i);
+        i = new Fl_Input(editX+120, y()+170, 60, 32, "Reflection");
+        i->align(FL_ALIGN_TOP_LEFT);
+        i->value("1");
+        i->hide();
         inputs.push_back(i);
         i = new Fl_Input(editX+30, y()+400,60,32, "Detail(\"n\")");
         i->align(FL_ALIGN_TOP_LEFT);
@@ -130,6 +135,7 @@ int Editor::handle(int event) {
     static int offset[2] = {0,0};
     switch(event){
         case FL_ENTER:
+            this->window()->insert(*this, window()->children());
             size(editWidth+infoWidth, editHeight);
             if (Fl::belowmouse() != this && Fl::belowmouse() != 0) // Er is al een widget waarover wordt gegaan
                 return 0;
@@ -145,7 +151,9 @@ int Editor::handle(int event) {
                     return Fl_Group::handle(event);
                 }
                 if(Fl::event_y() > y() + infoHeight) {
+                    size(infoWidth, infoHeight);
                     this->scrollInfo->hide();
+                    this->window()->redraw();
                 }
             }
 
@@ -164,6 +172,8 @@ int Editor::handle(int event) {
                     for(std::pair<std::string, std::string> pair : dump){
                         std::cerr << pair.first << " = " << pair.second << std::endl;
                     }
+                    this->window()->add(colorToLight((ColorFigureEditor*)this));
+                    this->hide();
                     const char* text = fl_input("What is the new name?", this->displayBox->label());
                     if (text != 0){
                         this->displayBox->label(text);
@@ -176,7 +186,6 @@ int Editor::handle(int event) {
                     offset[1] = y()-Fl::event_y();
                     origX = x();
                     origY = y();
-                    this->window()->insert(*this, window()->children());
                     return 1;
                 }
             }
@@ -211,21 +220,21 @@ void FigureEditor::changeTypeCB(Fl_Widget *w, void *v) {
     Fl_Choice* choice = (Fl_Choice*) w;
     FigureEditor* editor = (FigureEditor*) v;
     std::string type = choice->text();
-    for(int i = 7; i <= 11; i++){
+    for(int i = 8; i <= 12; i++){
         editor->inputs[i]->hide();
     }
     if (type == "Sphere"){
-        editor->inputs[7]->show();
-    }
-    else if (type == "Cone" || type == "Cylinder"){
-        editor->inputs[7]->show();
         editor->inputs[8]->show();
     }
-    else if (type == "Torus"){
-        editor->inputs[7]->show();
+    else if (type == "Cone" || type == "Cylinder"){
+        editor->inputs[8]->show();
         editor->inputs[9]->show();
+    }
+    else if (type == "Torus"){
+        editor->inputs[8]->show();
         editor->inputs[10]->show();
         editor->inputs[11]->show();
+        editor->inputs[12]->show();
     }
 }
 
@@ -267,6 +276,7 @@ std::map<std::string, std::string> FigureEditor::getDump() {
 LightFigureEditor::LightFigureEditor(int X, int Y, int W, int H, const char *l) : FigureEditor(X, Y, W, H, l) {
     this->scrollInfo->begin();
     int editX = x()+infoWidth;
+    inputs[7]->show();
     otherWidgets.push_back(new LightingGroup(editX+80,y()+220,"Ambient"));
     otherWidgets.push_back(new LightingGroup(editX+80,y()+270,"Diffuse"));
     otherWidgets.push_back(new LightingGroup(editX+80,y()+320,"Specular"));
@@ -428,6 +438,8 @@ ImageEditor::ImageEditor(int X, int Y, int W, int H, const char *l) : Editor(X, 
         choice->add("ZBuffering");
         choice->add("LightedZBuffering");
         choice->value(0);
+        choice->when(FL_WHEN_CHANGED);
+        choice->callback(changeTypeCB);
         otherWidgets.push_back(choice);
 
         Fl_Input* input = new Fl_Input(editX + 30, y() + 70, 60, 32, "Size" );
@@ -463,6 +475,28 @@ std::map<std::string, std::string> ImageEditor::getDump() {
     Fl_Color_Chooser *chooser = (Fl_Color_Chooser *) otherWidgets[1];
     dump[chooser->label()] = "(" + std::to_string(chooser->r()) + ", " + std::to_string(chooser->g()) + ", " + std::to_string(chooser->b()) + ")";
     return dump;
+}
+
+void ImageEditor::changeTypeCB(Fl_Widget *w) {
+    GUI* gui = (GUI*) w->window();
+    Fl_Choice* typechoice = (Fl_Choice*) gui->imageEditor->otherWidgets[0];
+    std::string imageType = typechoice->text();
+    if (gui->figureEditors[0]->type() == "Color" && imageType == "LightedZBuffering"){
+        for(int i = 0; i < gui->figureEditors.size(); i++){
+            LightFigureEditor* lightFigureEditor = colorToLight((ColorFigureEditor*)gui->figureEditors[i]);
+            Fl::delete_widget(gui->figureEditors[i]);
+            gui->figureEditors[i] = lightFigureEditor;
+            gui->add(lightFigureEditor);
+        }
+    }
+    else if (gui->figureEditors[0]->type() == "Light" && imageType != "LightedZBuffering"){
+        for(int i = 0; i < gui->figureEditors.size(); i++){
+            ColorFigureEditor* colorFigureEditor = lightToColor((LightFigureEditor*)gui->figureEditors[i]);
+            Fl::delete_widget(gui->figureEditors[i]);
+            gui->figureEditors[i] = colorFigureEditor;
+            gui->add(colorFigureEditor);
+        }
+    }
 }
 
 void GUI::generateIni() {
@@ -511,6 +545,7 @@ void GUI::generateIni() {
             file << "ambientReflection = " << figureDump["Ambient"] << std::endl;
             file << "diffuseReflection = " << figureDump["Diffuse"] << std::endl;
             file << "specularReflection = " << figureDump["Specular"] << std::endl;
+            file << "reflectionCoefficient = " << figureDump["Reflection"] << std::endl;
         }
         if (figureDump.find("Detail(\"n\")") != figureDump.end())
             file << "n = " << figureDump["Detail(\"n\")"] << std::endl;
@@ -559,11 +594,37 @@ void executeCommand(std::string s) {
 }
 
 LightFigureEditor *colorToLight(ColorFigureEditor *colorFigureEditor) {
-    LightFigureEditor* lightFigureEditor = new LightFigureEditor(colorFigureEditor->x(), colorFigureEditor->y(), colorFigureEditor->w(), colorFigureEditor->h(), colorFigureEditor->displayBox->label());
-    Fl_Choice* typechoice1 = (Fl_Choice*) colorFigureEditor->child(0);
-    Fl_Choice* typechoice2 = (Fl_Choice*) lightFigureEditor->child(0);
+    LightFigureEditor* lightFigureEditor = new LightFigureEditor(colorFigureEditor->x(), colorFigureEditor->y(), colorFigureEditor->infoWidth, colorFigureEditor->infoHeight, colorFigureEditor->label());
+    Fl_Choice* typechoice1 = (Fl_Choice*) colorFigureEditor->otherWidgets[0];
+    Fl_Choice* typechoice2 = (Fl_Choice*) lightFigureEditor->otherWidgets[0];
     typechoice2->value(typechoice1->value());
-     return lightFigureEditor;
+    typechoice2->do_callback();
+    Fl_Color_Chooser* chooser = (Fl_Color_Chooser*) colorFigureEditor->otherWidgets[1];
+    LightingGroup* lightingGroup = (LightingGroup*) lightFigureEditor->otherWidgets[1];
+    lightingGroup->value(chooser->r(),chooser->g(),chooser->b());
+    for(int i = 0; i < colorFigureEditor->inputs.size();i++){
+        Fl_Input* input1 = colorFigureEditor->inputs[i];
+        Fl_Input* input2 = lightFigureEditor->inputs[i];
+        input2->value(input1->value());
+    }
+    return lightFigureEditor;
+}
+
+ColorFigureEditor *lightToColor(LightFigureEditor *lightFigureEditor) {
+    ColorFigureEditor* colorFigureEditor = new ColorFigureEditor(lightFigureEditor->x(), lightFigureEditor->y(), lightFigureEditor->infoWidth, lightFigureEditor->infoHeight, lightFigureEditor->label());
+    Fl_Choice* typechoice1 = (Fl_Choice*) lightFigureEditor->otherWidgets[0];
+    Fl_Choice* typechoice2 = (Fl_Choice*) colorFigureEditor->otherWidgets[0];
+    typechoice2->value(typechoice1->value());
+    typechoice2->do_callback();
+    LightingGroup* lightingGroup = (LightingGroup*) lightFigureEditor->otherWidgets[1];
+    Fl_Color_Chooser* chooser = (Fl_Color_Chooser*) colorFigureEditor->otherWidgets[1];
+    chooser->rgb(lightingGroup->r(), lightingGroup->g(), lightingGroup->b());
+    for(int i = 0; i < lightFigureEditor->inputs.size();i++){
+        Fl_Input* input1 = lightFigureEditor->inputs[i];
+        Fl_Input* input2 = colorFigureEditor->inputs[i];
+        input2->value(input1->value());
+    }
+    return colorFigureEditor;
 }
 
 LightingGroup::LightingGroup(int X, int Y, const char *label) : Fl_Group(X,Y, 205,32, label){
@@ -618,4 +679,26 @@ std::string LightingGroup::value() {
     val += inputB->value();
     val += ")";
     return val;
+}
+
+void LightingGroup::value(double r, double g, double b) {
+    Fl_Input* inputR = (Fl_Input*) child(0);
+    Fl_Input* inputG = (Fl_Input*) child(1);
+    Fl_Input* inputB = (Fl_Input*) child(2);
+    inputR->value(std::to_string(r).substr(0,4).c_str());
+    inputG->value(std::to_string(g).substr(0,4).c_str());
+    inputB->value(std::to_string(b).substr(0,4).c_str());
+}
+
+double LightingGroup::r() {
+    return std::stod(((Fl_Input*)child(0))->value());
+}
+
+double LightingGroup::g() {
+    return std::stod(((Fl_Input*)child(1))->value());
+
+}
+
+double LightingGroup::b() {
+    return std::stod(((Fl_Input*)child(2))->value());
 }

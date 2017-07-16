@@ -23,7 +23,10 @@
 #include "FL/Fl_Choice.H"
 #include "FL/Fl_Check_Button.H"
 #include "FL/Fl_Menu_Bar.H"
-#include "FL/Fl_Radio_Light_Button.H"
+#include "FL/Fl_Radio_Round_Button.H"
+
+class LightFigureEditor;
+class ColorFigureEditor;
 
 class Editor : public Fl_Group{
 protected:
@@ -35,6 +38,10 @@ protected:
     std::vector<Fl_Input*> inputs;
     std::vector<Fl_Widget*> otherWidgets;
 public:
+    friend LightFigureEditor* colorToLight(ColorFigureEditor* colorFigureEditor);
+
+    friend ColorFigureEditor* lightToColor(LightFigureEditor* lightFigureEditor);
+
     Editor(int X, int Y, int W, int H, const char* l);
 
     Fl_Box* displayBox = NULL;
@@ -47,11 +54,7 @@ public:
 };
 
 class FigureEditor : public Editor{
-protected:
-    virtual int defaultWidgets(){
-        return 10;
-    }
-
+private:
     static void changeTypeCB(Fl_Widget* w, void* v);
 public:
     FigureEditor(int X, int Y, int W, int H, const char* l = 0);
@@ -59,30 +62,34 @@ public:
     int handle(int event);
 
     virtual std::map<std::string, std::string> getDump();
+
+    virtual std::string type() = 0;
 };
 
 class LightFigureEditor : public FigureEditor{
 protected:
-    int defaultWidgets(){
-        return 19;
-    }
 public:
     LightFigureEditor(int X, int Y, int W, int H, const char *l);
 
     std::map<std::string, std::string> getDump();
 
+    std::string type(){
+        return "Light";
+    }
 };
 
 
 class ColorFigureEditor : public FigureEditor{
 protected:
-    int defaultWidgets(){
-        return 11;
-    }
+
 public:
     ColorFigureEditor(int X, int Y, int W, int H, const char *l);
 
     std::map<std::string, std::string> getDump();
+
+    std::string type(){
+        return "Color";
+    }
 };
 
 class LightEditor: public Editor{
@@ -97,6 +104,8 @@ public:
 };
 
 class ImageEditor: public Editor{
+private:
+    static void changeTypeCB(Fl_Widget* w);
 public:
     ImageEditor(int X, int Y, int W, int H, const char* l);
 
@@ -126,6 +135,8 @@ public:
 
     friend class LightEditor;
 
+    friend class ImageEditor;
+
     Fl_Menu_Bar* menuBar = NULL;
 
     GUI(int W, int H, const char *l = 0);
@@ -148,9 +159,20 @@ public:
     LightingGroup(int X, int Y, const char* label);
 
     std::string value();
+
+    void value(double r, double g, double b);
+
+    double r();
+
+    double g();
+
+    double b();
 };
 
 void executeCommand(std::string s);
 
 LightFigureEditor* colorToLight(ColorFigureEditor* colorFigureEditor);
+
+ColorFigureEditor* lightToColor(LightFigureEditor* lightFigureEditor);
+
 #endif //GRAPHICS_ENGINE_GUI_GUI_H
