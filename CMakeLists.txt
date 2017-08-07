@@ -6,6 +6,6 @@ set(CMAKE_CXX_STANDARD 11)
 include_directories(FLTK)
 link_directories(usr/local/lib)
 
-set(SOURCE_FILES main.cpp GUI.cpp GUI.h)
+set(SOURCE_FILES main.cpp GUI.cpp GUI.h ini_configuration.cc ini_configuration.hh)
 add_executable(Graphics_Engine_GUI ${SOURCE_FILES})
 target_link_libraries(Graphics_Engine_GUI fltk_images fltk X11 Xext pthread Xfixes dl m)

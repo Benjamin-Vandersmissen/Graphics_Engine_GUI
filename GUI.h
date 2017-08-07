@@ -11,6 +11,7 @@
 #include <map>
 #include <fstream>
 #include <exception>
+#include "ini_configuration.hh"
 #include "FL/Fl.H"
 #include "FL/names.h"
 #include "FL/Fl_Group.H"
@@ -41,6 +42,8 @@ public:
     friend LightFigureEditor* colorToLight(ColorFigureEditor* colorFigureEditor);
 
     friend ColorFigureEditor* lightToColor(LightFigureEditor* lightFigureEditor);
+
+    friend class GUI;
 
     Editor(int X, int Y, int W, int H, const char* l);
 
@@ -139,6 +142,8 @@ public:
 
     Fl_Menu_Bar* menuBar = NULL;
 
+    Fl_Scroll* figureEditorsScroll = NULL;
+
     GUI(int W, int H, const char *l = 0);
 
     void addFigureEditor(int lightType, int figureType = 0);
@@ -150,6 +155,12 @@ public:
     static void submitCB(Fl_Widget *w, void *v);
 
     void generateIni();
+
+    void clear();
+
+    void loadFromIni(std::string filename);
+
+    FigureEditor* figureEditorFromIni(ini::Section section);
 };
 
 class LightingGroup : public Fl_Group{
