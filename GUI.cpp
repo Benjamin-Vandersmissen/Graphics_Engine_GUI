@@ -54,7 +54,7 @@ Editor::Editor(int X, int Y, int W, int H, const char *l) : Fl_Group(X, Y, W, H,
     this->scrollInfo->hide();
 }
 
-FigureEditor::FigureEditor(int X, int Y, int W, int H, const char *l) : Editor(X, Y, W, H, l){
+FigureEditor::FigureEditor(int X, int Y, int W, int H, const char *l) : GenericEditor(X, Y, W, H, l){
     int editX = x()+infoWidth;
     this->scrollInfo->begin();
     {
@@ -138,61 +138,60 @@ FigureEditor::FigureEditor(int X, int Y, int W, int H, const char *l) : Editor(X
 int Editor::handle(int event) {
     static int offset[2] = {0,0};
     switch(event){
-        case FL_ENTER:
+        case FL_ENTER: {
             this->parent()->insert(*this, window()->children());
-            size(editWidth+infoWidth, editHeight);
-            if (y()+editHeight > this->parent()->y() + this->parent()->h()){
-                this->y(displayBox->y()-editHeight+infoHeight);
+            size(editWidth + infoWidth, editHeight);
+            if (displayBox->y() + editHeight > this->parent()->y() + this->parent()->h()) {
+                this->y(displayBox->y() - editHeight + infoHeight);
                 this->scrollInfo->position(scrollInfo->x(), y());
-                this->scrollInfo->show();
-                this->window()->redraw();
             }
-            if (Fl::belowmouse() != this && Fl::belowmouse() != 0) // Er is al een widget waarover wordt gegaan
-                return 0;
-            if (Fl::event_x() <= displayBox->x()+infoWidth && Fl::event_y() <= displayBox->y()+infoHeight){
-                this->scrollInfo->show();
-                this->window()->redraw();
-            }
+            this->scrollInfo->show();
+            this->window()->redraw();
             return 1;
-        case FL_MOVE:
-            if (Fl::event_x() <= displayBox->x()+infoWidth){
-                if (Fl::event_y() <= y()+infoHeight && !this->scrollInfo->visible()) {
-                    this->scrollInfo->show();
-                    return Fl_Group::handle(event);
-                }
-                if(Fl::event_y() > displayBox->y() + infoHeight || Fl::event_y() < displayBox->y()) {
+        }
+        case FL_MOVE: {
+            int a = mouseOverInfo(Fl::event_x(), Fl::event_y()) | mouseOverEdit(Fl::event_x(), Fl::event_y()) << 1;
+            switch(a){ //over None
+                case 0x0:{
+                    if (scrollInfo->visible()){
+                        scrollInfo->hide();
+                    }
+                    window()->redraw();
                     size(infoWidth, infoHeight);
-                    this->scrollInfo->hide();
-                    this->window()->redraw();
+                    break;
+                }
+                case 0x1:{ //over Info
+                    if (!scrollInfo->visible()){
+                        scrollInfo->show();
+                    }
+                    break;
+                }
+                case 0x2:{ //over Edit
+                    break;
+                }
+                default:{// shouldn't be reached
+                    break;
                 }
             }
-
             return 1;
-
-        case FL_LEAVE:
+        }
+        case FL_LEAVE: {
             size(infoWidth, infoHeight);
             y(displayBox->y());
             scrollInfo->position(scrollInfo->x(), y());
             if (this->scrollInfo->visible())
                 this->scrollInfo->hide();
             return Fl_Group::handle(event);
+        }
 
         case FL_PUSH:{
-            if (Fl::event_x() <= x()+infoWidth && Fl::event_y() <= y()+infoHeight){
+            if (mouseOverInfo(Fl::event_x(), Fl::event_y())){
+                this->scrollInfo->hide();
                 if (Fl::event_clicks() == 1){ //double click on the info to change the name
-                    std::map<std::string, std::string> dump = getDump();
-                    for(std::pair<std::string, std::string> pair : dump){
-                        std::cerr << pair.first << " = " << pair.second << std::endl;
-                    }
-                    const char* text = fl_input("What is the new name?", this->displayBox->label());
-                    if (text != 0){
-                        this->label(text);
-                        displayBox->label(label());
-                    }
+                    rename();
                     return 0;
                 }
                 else if (Fl::event_clicks() == 0) {
-                    this->scrollInfo->hide();
                     offset[0] = x()-Fl::event_x();
                     offset[1] = y()-Fl::event_y();
                     origX = x();
@@ -227,6 +226,130 @@ std::map<std::string, std::string> Editor::getDump() {
     }
     return dump;
 }
+
+bool GenericEditor::mouseOverAction(int mouseX, int mouseY) {
+    bool a = mouseX >= actionGroup->x() && mouseX < actionGroup->x()+infoWidth && mouseY >= actionGroup->y() && mouseY < actionGroup->y()+actionHeight;
+    return a;
+}
+
+GenericEditor::GenericEditor(int X, int Y, int W, int H, const char *l) : Editor(X, Y, W, H, l) {
+    actionHeight = 30;
+    this->actionGroup = new Fl_Group(X,Y+H,W,actionHeight);
+    this->actionGroup->box(FL_PLASTIC_UP_FRAME);
+    this->actionGroup->end();
+    Fl_Button* deleteButton = new Fl_Button(X+10,Y+infoHeight+5,20,20,"@9+");
+    deleteButton->labelcolor(FL_DARK_RED);
+    deleteButton->callback(deleteCB, this);
+    this->actionGroup->add(deleteButton);
+    Fl_Button* renameButton = new Fl_Button(X+40, Y+infoHeight+5, 60, 20, "Rename");
+    renameButton->callback(renameCB, this);
+    this->actionGroup->add(renameButton);
+    this->actionGroup->hide();
+    this->add(actionGroup);
+}
+
+int GenericEditor::handle(int event) {
+    switch (event) {
+        case FL_ENTER:{
+            if (displayBox->y() + infoHeight+actionHeight > parent()->y()+parent()->h()){
+                actionGroup->position(actionGroup->x(), displayBox->y()-actionHeight);
+            }
+            return Editor::handle(event);
+        }
+        case FL_PUSH :{
+            if (mouseOverInfo(Fl::event_x(), Fl::event_y())){
+                actionGroup->hide();
+            }
+            return Editor::handle(event);
+        }
+        case FL_MOVE: {
+            int a = mouseOverInfo(Fl::event_x(), Fl::event_y()) | mouseOverEdit(Fl::event_x(), Fl::event_y()) << 1 |
+                    mouseOverAction(Fl::event_x(), Fl::event_y()) << 2;
+            switch (a) {
+                case 0x0: { // over None
+                    if (scrollInfo->visible()) {
+                        scrollInfo->hide();
+                    }
+                    if (actionGroup->visible()) {
+                        actionGroup->hide();
+                    }
+                    window()->redraw();
+                    size(infoWidth, infoHeight);
+                    break;
+                }
+                case 0x1: { //over Info
+                    if (!scrollInfo->visible()) {
+                        scrollInfo->show();
+                    }
+                    if (!actionGroup->visible()) {
+                        actionGroup->show();
+                    }
+                    break;
+                }
+                case 0x2: { //over Edit
+                    if (actionGroup->visible()) {
+                        actionGroup->hide();
+                        window()->redraw();
+                    }
+                    break;
+                }
+                case 0x4: { //over Action
+                    if (scrollInfo->visible()) {
+                        scrollInfo->hide();
+                        window()->redraw();
+                    }
+                    break;
+                }
+                default: {// shouldn't be reached
+                    break;
+                }
+            }
+            return 1;
+        }
+        case FL_LEAVE:{
+            actionGroup->hide();
+            actionGroup->position(actionGroup->x(), displayBox->y()+infoHeight);
+            return Editor::handle(event);
+        }
+        default:
+            return Editor::handle(event);
+    }
+}
+
+void GenericEditor::deleteCB(Fl_Widget *w, void *v) {
+    GenericEditor* widget = (GenericEditor*) v;
+    GUI* gui = (GUI*) ((GenericEditor*)v)->window();
+    if (widget->type() == "ColorFigure" || widget->type() == "LightFigure") {
+        long index = std::distance(gui->figureEditors.begin(),
+                                   std::find(gui->figureEditors.begin(), gui->figureEditors.end(), widget));
+        if (index == gui->figureEditors.size())
+            return;
+        for (long a = index + 1; a < gui->figureEditors.size(); a++) {
+            gui->figureEditors[a]->position(gui->figureEditors[a]->x(),
+                                            gui->figureEditors[a]->y() - gui->SEPERATION - gui->EDITORHEIGHT);
+        }
+        gui->figureEditors.erase(std::remove(gui->figureEditors.begin(), gui->figureEditors.end(), widget), gui->figureEditors.end());
+    }
+    else if (widget->type() == "Light"){
+        long index = std::distance(gui->lightEditors.begin(),
+                                   std::find(gui->lightEditors.begin(), gui->lightEditors.end(), widget));
+        if (index == gui->lightEditors.size())
+            return;
+        for (long a = index + 1; a < gui->lightEditors.size(); a++) {
+            gui->lightEditors[a]->position(gui->lightEditors[a]->x(),
+                                            gui->lightEditors[a]->y() - gui->SEPERATION - gui->EDITORHEIGHT);
+        }
+        gui->lightEditors.erase(std::remove(gui->lightEditors.begin(), gui->lightEditors.end(), widget), gui->lightEditors.end());
+    }
+    widget->hide();
+    Fl::delete_widget(widget);
+}
+
+void GenericEditor::renameCB(Fl_Widget *w, void *v) {
+    GenericEditor* widget = (GenericEditor*) v;
+    widget->rename();
+}
+
 
 void FigureEditor::changeTypeCB(Fl_Widget *w, void *v) {
     Fl_Choice* choice = (Fl_Choice*) w;
@@ -274,7 +397,7 @@ int FigureEditor::handle(int event) {
             }
         }
         default:
-            return Editor::handle(event);
+            return GenericEditor::handle(event);
     }
 }
 
@@ -321,7 +444,7 @@ std::map<std::string, std::string> ColorFigureEditor::getDump() {
     return dump;
 }
 
-LightEditor::LightEditor(int X, int Y, int W, int H, const char *l) : Editor(X, Y, W, H, l){
+LightEditor::LightEditor(int X, int Y, int W, int H, const char *l) : GenericEditor(X, Y, W, H, l){
     int editX = x()+infoWidth;
     this->scrollInfo->begin();
     Fl_Check_Button* check = new Fl_Check_Button(editX+120, y()+20, 32,32,"Infinity");
@@ -401,7 +524,7 @@ int LightEditor::handle(int event) {
             }
         }
         default:
-            return Editor::handle(event);
+            return GenericEditor::handle(event);
     }}
 
 void GUI::addFigureEditor(int lightType, int figureType) {
@@ -493,7 +616,7 @@ void ImageEditor::changeTypeCB(Fl_Widget *w) {
     GUI* gui = (GUI*) w->window();
     Fl_Choice* typechoice = (Fl_Choice*) gui->imageEditor->otherWidgets[0];
     std::string imageType = typechoice->text();
-    if (gui->figureEditors[0]->type() == "Color" && imageType == "LightedZBuffering"){
+    if (gui->figureEditors[0]->type() == "ColorFigure" && imageType == "LightedZBuffering"){
         for(int i = 0; i < gui->figureEditors.size(); i++){
             LightFigureEditor* lightFigureEditor = colorToLight((ColorFigureEditor*)gui->figureEditors[i]);
             Fl::delete_widget(gui->figureEditors[i]);
@@ -501,7 +624,7 @@ void ImageEditor::changeTypeCB(Fl_Widget *w) {
             gui->add(lightFigureEditor);
         }
     }
-    else if (gui->figureEditors[0]->type() == "Light" && imageType != "LightedZBuffering"){
+    else if (gui->figureEditors[0]->type() == "LightFigure" && imageType != "LightedZBuffering"){
         for(int i = 0; i < gui->figureEditors.size(); i++){
             ColorFigureEditor* colorFigureEditor = lightToColor((LightFigureEditor*)gui->figureEditors[i]);
             Fl::delete_widget(gui->figureEditors[i]);
@@ -735,6 +858,22 @@ ColorFigureEditor *lightToColor(LightFigureEditor *lightFigureEditor) {
     return colorFigureEditor;
 }
 
+bool Editor::mouseOverInfo(int mouseX, int mouseY) {
+    return mouseX >= displayBox->x() && mouseX < displayBox->x()+infoWidth && mouseY >= displayBox->y() && mouseY < displayBox->y()+infoHeight;
+}
+
+bool Editor::mouseOverEdit(int mouseX, int mouseY) {
+    return mouseX >= scrollInfo->x() && mouseX < scrollInfo->x()+editWidth && mouseY >= scrollInfo->y() && mouseY < scrollInfo->y()+editHeight;
+}
+
+void Editor::rename() {
+    const char* text = fl_input("What is the new name?", this->displayBox->label());
+    if (text != 0){
+        this->label(text);
+        displayBox->label(label());
+    }
+}
+
 LightingGroup::LightingGroup(int X, int Y, const char *label) : Fl_Group(X,Y, 205,32, label){
     align(FL_ALIGN_LEFT);
     Fl_Input* inp = new Fl_Input(X+5, Y, 40, 32, "R");
@@ -810,3 +949,5 @@ double LightingGroup::g() {
 double LightingGroup::b() {
     return std::stod(((Fl_Input*)child(2))->value());
 }
+
+

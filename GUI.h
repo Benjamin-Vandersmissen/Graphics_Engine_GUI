@@ -11,6 +11,7 @@
 #include <map>
 #include <fstream>
 #include <exception>
+#include <algorithm>
 #include "ini_configuration.hh"
 #include "FL/Fl.H"
 #include "FL/names.h"
@@ -38,6 +39,8 @@ protected:
     int origX, origY;
     std::vector<Fl_Input*> inputs;
     std::vector<Fl_Widget*> otherWidgets;
+    bool mouseOverInfo(int mouseX, int mouseY);
+    bool mouseOverEdit(int mouseX, int mouseY);
 public:
     friend LightFigureEditor* colorToLight(ColorFigureEditor* colorFigureEditor);
 
@@ -54,9 +57,28 @@ public:
     virtual int handle(int event);
 
     virtual std::map<std::string, std::string> getDump();
+
+    void rename();
 };
 
-class FigureEditor : public Editor{
+class GenericEditor : public Editor{
+private:
+    static void deleteCB(Fl_Widget *w, void *v);
+    static void renameCB(Fl_Widget* w, void* v);
+protected:
+    int actionHeight;
+    bool mouseOverAction(int mouseX, int mouseY);
+public:
+    GenericEditor(int X, int Y, int W, int H, const char* l);
+
+    Fl_Group* actionGroup = NULL;
+
+    virtual int handle(int event);
+
+    virtual std::string type() = 0;
+};
+
+class FigureEditor : public GenericEditor{
 private:
     static void changeTypeCB(Fl_Widget* w, void* v);
 public:
@@ -77,7 +99,7 @@ public:
     std::map<std::string, std::string> getDump();
 
     std::string type(){
-        return "Light";
+        return "LightFigure";
     }
 };
 
@@ -91,11 +113,11 @@ public:
     std::map<std::string, std::string> getDump();
 
     std::string type(){
-        return "Color";
+        return "ColorFigure";
     }
 };
 
-class LightEditor: public Editor{
+class LightEditor: public GenericEditor{
 private:
     static void changeTypeCB(Fl_Widget *w);
 public:
@@ -104,6 +126,10 @@ public:
     std::map<std::string, std::string> getDump();
 
     int handle(int event);
+
+    std::string type(){
+        return "Light";
+    }
 };
 
 class ImageEditor: public Editor{
@@ -139,6 +165,8 @@ public:
     friend class LightEditor;
 
     friend class ImageEditor;
+
+    friend class GenericEditor;
 
     Fl_Menu_Bar* menuBar = NULL;
 
