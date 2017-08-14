@@ -12,6 +12,8 @@
 #include <fstream>
 #include <exception>
 #include <algorithm>
+#include <pthread.h>
+#include <sys/stat.h>
 #include "ini_configuration.hh"
 #include "FL/Fl.H"
 #include "FL/names.h"
@@ -26,7 +28,7 @@
 #include "FL/Fl_Check_Button.H"
 #include "FL/Fl_Menu_Bar.H"
 #include "FL/Fl_Radio_Round_Button.H"
-
+#include "FL/Fl_BMP_Image.H"
 class LightFigureEditor;
 class ColorFigureEditor;
 
@@ -135,6 +137,9 @@ public:
 class ImageEditor: public Editor{
 private:
     static void changeTypeCB(Fl_Widget* w);
+
+    static void ShadowsCheckCB(Fl_Widget* w);
+
 public:
     ImageEditor(int X, int Y, int W, int H, const char* l);
 
@@ -184,11 +189,15 @@ public:
 
     void generateIni();
 
+    static void* generateImage(void* v);
+
     void clear();
 
     void loadFromIni(std::string filename);
 
     FigureEditor* figureEditorFromIni(ini::Section section);
+
+    LightEditor* lightEditorFromIni(ini::Section section);
 };
 
 class LightingGroup : public Fl_Group{
@@ -214,4 +223,11 @@ LightFigureEditor* colorToLight(ColorFigureEditor* colorFigureEditor);
 
 ColorFigureEditor* lightToColor(LightFigureEditor* lightFigureEditor);
 
+std::string dtos(double d); //Converts a double to string and removes all useless zeroes
+
+void imagePreviewTimeOut(void* v);
+
+bool fileExists(std::string filename);
+
+bool directoryExists(std::string dirname);
 #endif //GRAPHICS_ENGINE_GUI_GUI_H

@@ -2,7 +2,6 @@
 // Created by benji on 30.06.17.
 //
 
-#include <FL/Fl_Group.H>
 #include "GUI.h"
 
 
@@ -10,9 +9,11 @@ GUI::GUI(int W, int H, const char *l) : Fl_Double_Window(W, H, l) {
 
     this->imageEditor = new ImageEditor(STARTX,STARTY,EDITORWIDTH,EDITORHEIGHT,"Image");
 
-    figureEditorsScroll = new Fl_Scroll(100,STARTY+EDITORHEIGHT+SEPERATION, EDITORWIDTH+imageEditor->editWidth+Fl::scrollbar_size_, 800);
+    figureEditorsScroll = new Fl_Scroll(100-Fl::scrollbar_size()-5,STARTY+EDITORHEIGHT+SEPERATION, EDITORWIDTH+imageEditor->editWidth+Fl::scrollbar_size_, 800);
     figureEditorsScroll->end();
-    figureEditorsScroll->scrollbar.position(EDITORWIDTH+10, figureEditorsScroll->scrollbar.y());
+    figureEditorsScroll->scroll_to(0,0);
+    figureEditorsScroll->type(Fl_Scroll::VERTICAL);
+    figureEditorsScroll->scrollbar.align(FL_ALIGN_LEFT);
     this->addFigureEditor(0, 0);
     this->addFigureEditor(0, 0);
     this->addLightEditor(0);
@@ -34,7 +35,10 @@ GUI::GUI(int W, int H, const char *l) : Fl_Double_Window(W, H, l) {
     new Fl_Radio_Round_Button(900,100,20,20,"TEST");
     new Fl_Radio_Round_Button(940,100,20,20,"TEST1");
     new Fl_Radio_Round_Button(980,100,20,20,"TEST2");
-    loadFromIni("wireframes094.ini");
+    loadFromIni("Image.ini");
+    for(FigureEditor* editor: figureEditors){
+        std::cerr << editor->origX << ' ' << editor->origY << std::endl;
+    }
     this->end();
     this->show();
 }
@@ -137,8 +141,11 @@ FigureEditor::FigureEditor(int X, int Y, int W, int H, const char *l) : GenericE
 
 int Editor::handle(int event) {
     static int offset[2] = {0,0};
+    static int sizes[2] = {0,0};
+    GUI* gui = (GUI*) window();
     switch(event){
         case FL_ENTER: {
+            std::cerr << origY << ' ' << y() << ' ' << y() + gui->figureEditorsScroll->yposition() << std::endl;
             this->parent()->insert(*this, window()->children());
             size(editWidth + infoWidth, editHeight);
             if (displayBox->y() + editHeight > this->parent()->y() + this->parent()->h()) {
@@ -194,8 +201,9 @@ int Editor::handle(int event) {
                 else if (Fl::event_clicks() == 0) {
                     offset[0] = x()-Fl::event_x();
                     offset[1] = y()-Fl::event_y();
-                    origX = x();
-                    origY = y();
+                    sizes[0] = w();
+                    sizes[1] = h();
+                    size(infoWidth, infoHeight);
                     return 1;
                 }
             }
@@ -209,6 +217,7 @@ int Editor::handle(int event) {
 
         case FL_RELEASE:{
             this->position(origX, origY);
+            this->size(sizes[0], sizes[1]);
             this->window()->redraw();
             break;
         }
@@ -318,13 +327,14 @@ int GenericEditor::handle(int event) {
 
 void GenericEditor::deleteCB(Fl_Widget *w, void *v) {
     GenericEditor* widget = (GenericEditor*) v;
+    widget->hide();
     GUI* gui = (GUI*) ((GenericEditor*)v)->window();
     if (widget->type() == "ColorFigure" || widget->type() == "LightFigure") {
         long index = std::distance(gui->figureEditors.begin(),
                                    std::find(gui->figureEditors.begin(), gui->figureEditors.end(), widget));
         if (index == gui->figureEditors.size())
             return;
-        for (long a = index + 1; a < gui->figureEditors.size(); a++) {
+        for (long a = index + 1; a < gui->figureEditors.size(); a++) { //move all editors under the deleted editor up
             gui->figureEditors[a]->position(gui->figureEditors[a]->x(),
                                             gui->figureEditors[a]->y() - gui->SEPERATION - gui->EDITORHEIGHT);
         }
@@ -341,7 +351,6 @@ void GenericEditor::deleteCB(Fl_Widget *w, void *v) {
         }
         gui->lightEditors.erase(std::remove(gui->lightEditors.begin(), gui->lightEditors.end(), widget), gui->lightEditors.end());
     }
-    widget->hide();
     Fl::delete_widget(widget);
 }
 
@@ -376,25 +385,30 @@ void FigureEditor::changeTypeCB(Fl_Widget *w, void *v) {
 int FigureEditor::handle(int event) {
     switch (event) {
         case FL_RELEASE:{
+            std::cerr << origY << std::endl;
             GUI* gui = (GUI*) window();
+            int dY = 0;
             for(FigureEditor* editor: gui->figureEditors){
                 if(editor == this)
                     continue;
                 bool condition = Fl::event_x() > editor->x() && Fl::event_x() < editor->x() + editor->infoWidth && Fl::event_y() > editor->y() && Fl::event_y() < editor->y() + editor->infoHeight;
                 if (condition) {
-                    int tempX, tempY;
-                    tempX = editor->origX;
-                    tempY = editor->origY;
+                    int tempOrigX, tempOrigY;
+                    tempOrigX = editor->origX;
+                    tempOrigY = editor->origY;
+                    dY = editor->y()-editor->origY;
+                    std::cerr << dY << ' ' << gui->figureEditorsScroll->yposition() << std::endl;
                     editor->origX = this->origX;
                     editor->origY = this->origY;
-                    this->origX = tempX;
-                    this->origY = tempY;
+                    this->origX = tempOrigX;
+                    this->origY = tempOrigY;
                     editor->position(editor->origX, editor->origY);
+                    break;
                 }
-                this->position(origX,origY);
-                gui->redraw();
-                break;
             }
+            this->position(origX,origY);
+            gui->redraw();
+            return 0;
         }
         default:
             return GenericEditor::handle(event);
@@ -440,7 +454,7 @@ ColorFigureEditor::ColorFigureEditor(int X, int Y, int W, int H, const char *l) 
 std::map<std::string, std::string> ColorFigureEditor::getDump() {
     std::map<std::string, std::string> dump = FigureEditor::getDump();
     Fl_Color_Chooser* chooser = (Fl_Color_Chooser*) otherWidgets[1];
-    dump[chooser->label()] = "(" + std::to_string(chooser->r()) + ", " + std::to_string(chooser->g()) + ", " + std::to_string(chooser->b()) + ")";
+    dump[chooser->label()] = "(" + dtos(chooser->r()) + ", " + dtos(chooser->g()) + ", " + dtos(chooser->b()) + ")";
     return dump;
 }
 
@@ -518,10 +532,10 @@ int LightEditor::handle(int event) {
                     this->origY = tempY;
                     editor->position(editor->origX, editor->origY);
                 }
-                this->position(origX,origY);
-                gui->redraw();
-                break;
             }
+            this->position(origX,origY);
+            gui->redraw();
+            break;
         }
         default:
             return GenericEditor::handle(event);
@@ -597,7 +611,18 @@ ImageEditor::ImageEditor(int X, int Y, int W, int H, const char *l) : Editor(X, 
         input->value("0");
         inputs.push_back(input);
 
+        input = new Fl_Input(editX + 210, y() + 70, 60, 32, "shadowMask");
+        input->align(FL_ALIGN_TOP_LEFT);
+        input->value("0");
+        input->hide();
+        inputs.push_back(input);
+
         otherWidgets.push_back(new Fl_Color_Chooser(editX+30,y()+170, 240,150, "BackgroundColor"));
+
+        Fl_Check_Button* shadowsCheck = new Fl_Check_Button(editX+170, y() + 70, 17,14, "Shadows");
+        shadowsCheck->align(FL_ALIGN_LEFT);
+        shadowsCheck->callback(ShadowsCheckCB);
+        otherWidgets.push_back(shadowsCheck);
     }
     this->scrollInfo->end();
     this->end();
@@ -608,20 +633,23 @@ std::map<std::string, std::string> ImageEditor::getDump() {
     Fl_Choice* choice = (Fl_Choice*) otherWidgets[0];
     dump[choice->label()] = choice->text();
     Fl_Color_Chooser *chooser = (Fl_Color_Chooser *) otherWidgets[1];
-    dump[chooser->label()] = "(" + std::to_string(chooser->r()) + ", " + std::to_string(chooser->g()) + ", " + std::to_string(chooser->b()) + ")";
+    dump[chooser->label()] = "(" + dtos(chooser->r()) + ", " + dtos(chooser->g()) + ", " + dtos(chooser->b()) + ")";
+    Fl_Check_Button* check = (Fl_Check_Button*) otherWidgets[2];
+    dump[check->label()] = (check->value() ? "TRUE" : "FALSE");
     return dump;
 }
 
 void ImageEditor::changeTypeCB(Fl_Widget *w) {
     GUI* gui = (GUI*) w->window();
-    Fl_Choice* typechoice = (Fl_Choice*) gui->imageEditor->otherWidgets[0];
+    ImageEditor* imageEditor = gui->imageEditor;
+    Fl_Choice* typechoice = (Fl_Choice*) imageEditor->otherWidgets[0];
     std::string imageType = typechoice->text();
     if (gui->figureEditors[0]->type() == "ColorFigure" && imageType == "LightedZBuffering"){
         for(int i = 0; i < gui->figureEditors.size(); i++){
             LightFigureEditor* lightFigureEditor = colorToLight((ColorFigureEditor*)gui->figureEditors[i]);
             Fl::delete_widget(gui->figureEditors[i]);
             gui->figureEditors[i] = lightFigureEditor;
-            gui->add(lightFigureEditor);
+            gui->figureEditorsScroll->add(lightFigureEditor);
         }
     }
     else if (gui->figureEditors[0]->type() == "LightFigure" && imageType != "LightedZBuffering"){
@@ -629,13 +657,30 @@ void ImageEditor::changeTypeCB(Fl_Widget *w) {
             ColorFigureEditor* colorFigureEditor = lightToColor((LightFigureEditor*)gui->figureEditors[i]);
             Fl::delete_widget(gui->figureEditors[i]);
             gui->figureEditors[i] = colorFigureEditor;
-            gui->add(colorFigureEditor);
+            gui->figureEditorsScroll->add(colorFigureEditor);
         }
+    }
+    if (imageType == "LightedZBuffering" && !imageEditor->otherWidgets[2]->visible()){
+        imageEditor->otherWidgets[2]->show();
+    }
+    else if (imageType != "LightedZBuffering" && imageEditor->otherWidgets[2]->visible()){
+        imageEditor->otherWidgets[2]->hide();
+    }
+}
+
+void ImageEditor::ShadowsCheckCB(Fl_Widget *w) {
+    ImageEditor* editor = (ImageEditor*) w->parent()->parent(); // checkbox->infoScroll->imageEditor
+    Fl_Check_Button* check = (Fl_Check_Button*) w;
+    if (check->value()){
+        editor->inputs[4]->show();
+    }
+    else{
+        editor->inputs[4]->hide();
     }
 }
 
 void GUI::generateIni() {
-    std::string filename = imageEditor->displayBox->label();
+    std::string filename = imageEditor->label();
     std::ofstream file(filename+".ini");
     file << "[General]" << std::endl;
     std::map<std::string, std::string> imageDump = imageEditor->getDump();
@@ -649,6 +694,8 @@ void GUI::generateIni() {
     if(imageDump["Type:"] == "LightedZBuffering"){
         int lights = this->lightEditors.size();
         file << "nrLights = " << lights << std::endl;
+        file << "shadowEnabled = " << imageDump["Shadows"] << std::endl;
+        file << "shadowMask = " << imageDump["shadowMask"] << std::endl;
         file << std::endl;
         for(int i = 0; i < lights; i++){
             std::map<std::string, std::string> lightDump = lightEditors[i]->getDump();
@@ -702,7 +749,12 @@ void GUI::generateIni() {
         file << std::endl;
     }
     file.close();
-    executeCommand("./engine "+ filename + ".ini");
+    Fl_Double_Window* win  = new Fl_Double_Window(200,100,imageEditor->label());
+    win->end();
+    win->show();
+    Fl::add_timeout(0.5,imagePreviewTimeOut, win);
+    pthread_t thread;
+    pthread_create(&thread, NULL, generateImage, this);
 }
 
 void GUI::submitCB(Fl_Widget *w, void *v) {
@@ -747,32 +799,41 @@ void GUI::loadFromIni(std::string filename) {
     std::string type = config["General"]["type"].as_string_or_die();
     int nrFigures = config["General"]["nrFigures"].as_int_or_die();
     std::vector<double> eye = config["General"]["eye"].as_double_tuple_or_die();
+    bool shadowsEnabled = config["General"]["shadowEnabled"].as_bool_or_default(false);
+    int shadowMaskSize = config["General"]["shadowMask"].as_int_or_default(0);
+    int nrLights = config["General"]["nrLights"].as_int_or_default(0);
     imageEditor = new ImageEditor(STARTX,STARTY,EDITORWIDTH,EDITORHEIGHT,"Image");
     Fl_Choice* choice = (Fl_Choice*)imageEditor->otherWidgets[0];
     choice->value(choice->find_index(type.c_str()));
     choice->do_callback();
     Fl_Color_Chooser* chooser = (Fl_Color_Chooser*) imageEditor->otherWidgets[1];
     chooser->rgb(colors[0],colors[1],colors[2]);
-    std::vector<std::string> args = {std::to_string(size), std::to_string(eye[0]), std::to_string(eye[1]), std::to_string(eye[2])};
+    Fl_Check_Button* check_button = (Fl_Check_Button*) imageEditor->otherWidgets[2];
+    check_button->value(shadowsEnabled);
+    check_button->do_callback();
+    std::vector<std::string> args = {dtos(size), dtos(eye[0]), dtos(eye[1]), dtos(eye[2]), dtos(shadowMaskSize)};
     for(int i = 0; i < args.size(); i++){
         imageEditor->inputs[i]->value(args[i].c_str());
     }
     for(int i = 0; i < nrFigures; i++){
-        std::string name = "Figure" + std::to_string(i);
+        std::string name = "Figure" + dtos(i);
         FigureEditor* editor = figureEditorFromIni(config[name]);
-        std::map<std::string, std::string> dump = editor->getDump();
-        int Y = STARTY+EDITORHEIGHT+2*SEPERATION; //er is altijd al een eerste editor, die van de image, met dubbele seperation ertussen
-        if (this->figureEditors.size() != 0){
-            Y = this->figureEditors.back()->y() + this->figureEditors.back()->displayBox->h() + 50;
-        }
+        int Y = STARTY+EDITORHEIGHT+2*SEPERATION + this->figureEditors.size()*(EDITORHEIGHT+SEPERATION); //er is altijd al een eerste editor, die van de image, met dubbele seperation ertussen
         editor->position(STARTX,Y);
         editor->origX = STARTX;
         editor->origY = Y;
         figureEditors.push_back(editor);
         this->figureEditorsScroll->add(editor);
-//        for(std::pair<std::string, std::string> pair: dump){
-//            std::cerr << pair.first << " = " << pair.second << std::endl;
-//        }
+    }
+    for(int i = 0; i < nrLights; i ++){
+        std::string name = "Light" + dtos(i);
+        LightEditor* editor = lightEditorFromIni(config[name]);
+        int Y = STARTY+EDITORHEIGHT+2*SEPERATION + this->lightEditors.size()*(EDITORHEIGHT+SEPERATION);
+        editor->position(STARTX+EDITORWIDTH+300+SEPERATION,Y);
+        editor->origX = STARTX+EDITORWIDTH+300+SEPERATION;
+        editor->origY = Y;
+        lightEditors.push_back(editor);
+        this->add(editor);
     }
 }
 
@@ -798,9 +859,9 @@ FigureEditor *GUI::figureEditorFromIni(ini::Section section) {
     }
     else{
         editor = new LightFigureEditor(0,0,EDITORWIDTH, EDITORHEIGHT, "Figure");
-        std::vector<double> ambient = section["AmbientReflection"].as_double_tuple_or_die();
-        std::vector<double> diffuse = section["DiffuseReflection"].as_double_tuple_or_die();
-        std::vector<double> specular = section["SpecularReflection"].as_double_tuple_or_die();
+        std::vector<double> ambient = section["ambientReflection"].as_double_tuple_or_die();
+        std::vector<double> diffuse = section["diffuseReflection"].as_double_tuple_or_die();
+        std::vector<double> specular = section["specularReflection"].as_double_tuple_or_die();
         LightingGroup* lightingGroup = (LightingGroup*) editor->otherWidgets[1];
         lightingGroup->value(ambient[0], ambient[1], ambient[2]);
         lightingGroup = (LightingGroup*) editor->otherWidgets[2];
@@ -808,16 +869,48 @@ FigureEditor *GUI::figureEditorFromIni(ini::Section section) {
         lightingGroup = (LightingGroup*) editor->otherWidgets[3];
         lightingGroup->value(specular[0], specular[1], specular[2]);
     }
-    std::vector<std::string> values = {std::to_string(center[0]), std::to_string(center[1]), std::to_string(center[2]),
-                                       std::to_string(rotateX), std::to_string(rotateY), std::to_string(rotateZ),
-                                       std::to_string(scale), std::to_string(reflection),std::to_string(n),
-                                       std::to_string(height), std::to_string(m), std::to_string(r), std::to_string(R)};
+    std::vector<std::string> values = {dtos(center[0]), dtos(center[1]), dtos(center[2]),
+                                       dtos(rotateX), dtos(rotateY), dtos(rotateZ),
+                                       dtos(scale), dtos(reflection),dtos(n),
+                                       dtos(height), dtos(m), dtos(r), dtos(R)};
     for(int i = 0; i < values.size(); i++){
         editor->inputs[i]->value(values[i].c_str());
     }
     Fl_Choice* choice = (Fl_Choice*) editor->otherWidgets[0];
     choice->value(choice->find_index(type.c_str()));
     return editor;
+}
+
+LightEditor *GUI::lightEditorFromIni(ini::Section section) {
+    bool infinity = section["infinity"].as_bool_or_die();
+    std::vector<double> ambient = section["ambientLight"].as_double_tuple_or_die();
+    std::vector<double> diffuse = section["diffuseLight"].as_double_tuple_or_die();
+    std::vector<double> specular = section["specularLight"].as_double_tuple_or_die();
+    std::vector<double> locationDirection = section[(infinity? "direction" : "location")].as_double_tuple_or_die();
+    LightEditor* editor = new LightEditor(0,0,EDITORWIDTH,EDITORHEIGHT,"Light");
+    Fl_Check_Button* check_button = (Fl_Check_Button*) editor->otherWidgets[0];
+    check_button->value(infinity);
+    LightingGroup* lightingGroup = (LightingGroup*) editor->otherWidgets[1];
+    lightingGroup->value(ambient[0], ambient[1], ambient[2]);
+    lightingGroup = (LightingGroup*) editor->otherWidgets[2];
+    lightingGroup->value(diffuse[0], diffuse[1], diffuse[2]);
+    lightingGroup = (LightingGroup*) editor->otherWidgets[3];
+    lightingGroup->value(specular[0], specular[1], specular[2]);
+    std::vector<std::string> args = {dtos(locationDirection[0]), dtos(locationDirection[1]), dtos(locationDirection[2])};
+    for(int i = 0; i < args.size(); i++){
+        editor->inputs[i]->value(args[i].c_str());
+    }
+    return editor;
+}
+
+void* GUI::generateImage(void* v) {
+    ImageEditor* editor = ((GUI*) v)->imageEditor;
+    std::string filename = (std::string)editor->label();
+    if (fileExists(filename+".bmp"))
+        executeCommand("rm " + filename + ".bmp");
+    std::string command = "./engine " + filename + ".ini";
+    executeCommand(command);
+    pthread_exit(NULL);
 }
 
 void executeCommand(std::string s) {
@@ -856,6 +949,33 @@ ColorFigureEditor *lightToColor(LightFigureEditor *lightFigureEditor) {
         input2->value(input1->value());
     }
     return colorFigureEditor;
+}
+
+std::string dtos(double d) {
+    std::string s = std::to_string(d);
+    long decPoint = s.find('.');
+    long firstZero = s.find('0',decPoint);
+
+    return (firstZero == decPoint+1 ? s.substr(0,decPoint) : s.substr(0,firstZero));
+}
+
+void imagePreviewTimeOut(void *v) {
+    Fl_Double_Window* window = (Fl_Double_Window*) v;
+    std::string filename = (std::string)window->label() + ".bmp";
+
+    if (fileExists(filename)){
+        Fl_BMP_Image* image = new Fl_BMP_Image(filename.c_str());
+        window->size(image->w(), image->h());
+        Fl_Box* box = new Fl_Box(0,0,image->w(), image->h());
+        box->image(image);
+        window->add(box);
+        window->redraw();
+        window->take_focus();
+    }
+    else{
+        std::cerr << "." << std::endl;
+        Fl::repeat_timeout(0.5, imagePreviewTimeOut, v);
+    }
 }
 
 bool Editor::mouseOverInfo(int mouseX, int mouseY) {
@@ -905,9 +1025,9 @@ void LightingGroup::colorCB(Fl_Widget *w) {
     fl_color_chooser("Color",r,g,b);
 
     std::string stringR, stringG, stringB;
-    stringR = std::to_string(r).substr(0,4);
-    stringG = std::to_string(g).substr(0,4);
-    stringB = std::to_string(b).substr(0,4);
+    stringR = dtos(r).substr(0,4);
+    stringG = dtos(g).substr(0,4);
+    stringB = dtos(b).substr(0,4);
     inputR->value(stringR.c_str());
     inputG->value(stringG.c_str());
     inputB->value(stringB.c_str());
@@ -932,9 +1052,9 @@ void LightingGroup::value(double r, double g, double b) {
     Fl_Input* inputR = (Fl_Input*) child(0);
     Fl_Input* inputG = (Fl_Input*) child(1);
     Fl_Input* inputB = (Fl_Input*) child(2);
-    inputR->value(std::to_string(r).substr(0,4).c_str());
-    inputG->value(std::to_string(g).substr(0,4).c_str());
-    inputB->value(std::to_string(b).substr(0,4).c_str());
+    inputR->value(dtos(r).c_str());
+    inputG->value(dtos(g).c_str());
+    inputB->value(dtos(b).c_str());
 }
 
 double LightingGroup::r() {
@@ -951,3 +1071,13 @@ double LightingGroup::b() {
 }
 
 
+bool fileExists(std::string filename) {
+    struct stat buf;
+    return (stat(filename.c_str(), &buf) == 0);
+
+}
+
+bool directoryExists(std::string dirname) {
+    struct stat buf;
+    return (stat(dirname.c_str(), &buf) == 0 && S_ISDIR(buf.st_mode));
+}
